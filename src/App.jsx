@@ -471,7 +471,26 @@ export default function App() {
   const parseAndFill = () => {
     if (!pastedScript.trim()) return
     setInputLang(detectLang(pastedScript))
-    setPages(parseScript(pastedScript, numPages, panelCounts))
+
+    // Auto-detect number of pages from script
+    const pageRegex = /===\s*(?:HALAMAN|PAGE)\s*\d+\s*===|(?:^|\n)(?:PAGE|HALAMAN)\s*\d+\s*(?:\n|$)/gim
+    const pageMatches = pastedScript.match(pageRegex)
+    const detectedPages = pageMatches ? pageMatches.length : 1
+
+    // Auto-detect panels per page
+    const pageBlocks = pastedScript.split(pageRegex)
+    const pageContents = pageBlocks.length > 1 ? pageBlocks.slice(1) : [pastedScript]
+    const detectedPanelCounts = pageContents.map(pg => {
+      const panelMatches = pg.match(/(?:^|\n)PANEL\s+\d+/gim)
+      return panelMatches ? panelMatches.length : 6
+    })
+
+    // Update state with detected values
+    setNumPages(detectedPages)
+    setPanelCounts(detectedPanelCounts)
+
+    // Parse using detected values
+    setPages(parseScript(pastedScript, detectedPages, detectedPanelCounts))
     setParsedFromScript(true)
   }
 
@@ -890,16 +909,6 @@ export default function App() {
 
         {step===4&&mode==='advanced'&&(
           <div className="gap12">
-            <button className="btn-ghost" style={{width:'100%',padding:'10px'}} onClick={()=>setShowAiPrompt(v=>!v)}>
-              {showAiPrompt?(T?'▲ Sorokkan Template':'▲ Hide Template'):(T?'▼ Dapatkan Template Prompt untuk AI':'▼ Get AI Prompt Template')}
-            </button>
-            {showAiPrompt&&(
-              <div style={{background:'var(--surface2)',border:'.5px solid var(--border2)',borderRadius:'var(--radius)',padding:14}}>
-                <div className="sub-lbl" style={{marginBottom:8}}>{T?'Copy ke ChatGPT / Gemini / Claude:':'Copy to ChatGPT / Gemini / Claude:'}</div>
-                <div className="prompt-box" style={{maxHeight:180}}>{AI_PROMPT_TEMPLATE(topic||'[topik]',charListStr||'[watak]',location||'[lokasi]',numPages,panelCounts,inputLang)}</div>
-
-              </div>
-            )}
             <div>
               <div className="lbl">{T?'Paste Skrip dari AI di Sini':'Paste AI Script Here'}</div>
               <textarea
