@@ -210,28 +210,43 @@ const detectLang = (text='') => {
 }
 
 const parseScript = (script, numPages, panelCounts) => {
-  const pageBlocks = script.split(/===\s*HALAMAN\s*\d+\s*===|===\s*PAGE\s*\d+\s*===/i)
-  const pageContents = pageBlocks.length > 1 ? pageBlocks.slice(1) : [script]
+  const normalized = script.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+  // Split by page — support === HALAMAN 1 ===, PAGE 1, HALAMAN 1, etc.
+  const pageRegex = /===\s*(?:HALAMAN|PAGE)\s*\d+\s*===|(?:^|\n)(?:PAGE|HALAMAN)\s*\d+\s*(?:\n|$)/gim
+  const pageBlocks = normalized.split(pageRegex)
+  const pageContents = pageBlocks.length > 1 ? pageBlocks.slice(1) : [normalized]
   return Array.from({length: numPages}, (_, pi) => {
     const pageText = pageContents[pi] || pageContents[0] || ''
     const pc = panelCounts[pi] || 6
-    const panelBlocks = pageText.split(/PANEL\s+\d+\s*[—–-]/i).filter(b => b.trim())
+    // Split by panel — support "PANEL 1 —", "PANEL 1:", "PANEL 1\n", "PANEL 1 -"
+    const panelBlocks = pageText.split(/(?:^|\n)PANEL\s+\d+\s*(?:[—–:\-]|\n)/im).filter(b => b.trim())
     return {
       pageNum: pi + 1,
       panels: Array.from({length: pc}, (_, pni) => {
         const block = panelBlocks[pni] || ''
-        const toneMatch = block.match(/(?:Tone\s*&\s*Emotional\s*Cue|Tone\s*&\s*Emosi|Tone)[:\s]+([^\n]+(?:\n(?!Visual|Dialog|PANEL)[^\n]+)*)/i)
+        // Tone — support multiple labels
+        const toneMatch = block.match(/(?:Tone\s*&\s*Emotional\s*Cue|Tone\s*&\s*Emosi|Emotional\s*Cue|Tone)[:\s]+([^\n]+)/i)
         const tone = toneMatch ? toneMatch[1].trim() : ''
-        const visualMatch = block.match(/(?:Visual\s*Description|Deskripsi\s*Visual|Visual)[:\s]+([^\n]+(?:\n(?!Tone|Dialog|PANEL)[^\n]+)*)/i)
+        // Visual — support multiple labels
+        const visualMatch = block.match(/(?:Visual\s*Description|Deskripsi\s*Visual|Visual)[:\s]+([\s\S]+?)(?=(?:\n(?:Tone|Dialog|PANEL|Caption|Footer))|$)/i)
         const visualDesc = visualMatch ? visualMatch[1].trim() : ''
+        // Dialogues — flexible parser
         const dialogues = []
-        const dialogSection = block.match(/(?:Dialog|Dialogue)[:\s]*([\s\S]*?)(?=PANEL|\n\n\n|$)/i)
-        if (dialogSection) {
-          const lines = dialogSection[1].match(/([A-Za-z\u00C0-\u017E][A-Za-z\u00C0-\u017E\s]*)\s*:\s*[""]?([^"":\n]+)[""]?/g)
-          if (lines) lines.slice(0,2).forEach(line => {
-            const m = line.match(/^([^:]+):\s*[""]?([^""]+)[""]?$/)
-            if (m) dialogues.push({ char: m[1].trim(), speech: m[2].trim().replace(/^[""]|[""]$/g,'') })
-          })
+        const dlgSection = block.match(/(?:Dialog(?:ue)?)[:\s]*([\s\S]*?)(?=(?:\n(?:Tone|Visual|PANEL|Caption|Footer|Rujukan))|$)/i)
+        const searchText = dlgSection ? dlgSection[1] : block
+        const dlgLines = searchText.split('\n')
+        for (const line of dlgLines) {
+          if (dialogues.length >= 2) break
+          // Match "Name: speech" or "Dialog Name:" patterns
+          const m = line.match(/^(?:Dialog\s+)?([A-Za-z\u00C0-\u017E][\w\s]{0,25}?)\s*:\s*(.+)$/)
+          if (m && m[2].trim()) {
+            const ch = m[1].trim()
+            const sp = m[2].trim().replace(/^[""]|[""]$/g,'')
+            // Skip label-only lines
+            if (!['visual','tone','dialog','dialogue','caption','footer','panel'].includes(ch.toLowerCase())) {
+              dialogues.push({ char: ch, speech: sp })
+            }
+          }
         }
         return { panelNum: pni+1, size: TONE_TO_SIZE(tone), tone, visualDesc, dialogues: dialogues.length ? dialogues : [{char:'',speech:''}] }
       })
@@ -817,7 +832,7 @@ export default function App() {
 
             {/* COPY FOR CUSTOMGPT BUTTON — after all info collected */}
             <div>
-              <div className="lbl">{T?'Guna CustomGPT untuk Hasilkan Skrip?':'Using CustomGPT to Generate Script?'}</div>
+              <div className="lbl">{T?'Salin Template ke AI':'Copy Template to AI'}</div>
               <div className="hint mb8">
                 <span>🤖</span>
                 <span>{T?'Semua maklumat di atas akan dimasukkan dalam template. Copy dan paste ke dalam CustomGPT AI Dakwah Comic Script Generator untuk hasilkan skrip dialog komik anda.':'All info above will be included in the template. Copy and paste into CustomGPT AI Dakwah Comic Script Generator to generate your comic dialogue script.'}</span>
@@ -859,7 +874,7 @@ export default function App() {
                   setTimeout(()=>setCopiedCustomGPT(false),2000)
                 }}
               >
-                {copiedCustomGPT?(T?'✅ Disalin! Paste ke CustomGPT sekarang.':'✅ Copied! Paste into CustomGPT now.'):(T?'📋 Copy Maklumat untuk CustomGPT':'📋 Copy Info for CustomGPT')}
+                {copiedCustomGPT?(T?'✅ Disalin! Paste ke AI sekarang.':'✅ Copied! Paste into AI now.'):(T?'📋 Salin Template ke AI':'📋 Copy Template to AI')}
               </button>
             </div>
           </div>
@@ -882,9 +897,7 @@ export default function App() {
               <div style={{background:'var(--surface2)',border:'.5px solid var(--border2)',borderRadius:'var(--radius)',padding:14}}>
                 <div className="sub-lbl" style={{marginBottom:8}}>{T?'Copy ke ChatGPT / Gemini / Claude:':'Copy to ChatGPT / Gemini / Claude:'}</div>
                 <div className="prompt-box" style={{maxHeight:180}}>{AI_PROMPT_TEMPLATE(topic||'[topik]',charListStr||'[watak]',location||'[lokasi]',numPages,panelCounts,inputLang)}</div>
-                <button className={`btn-copy${copiedTemplate?' copied':''}`} style={{marginTop:8}} onClick={copyTemplate}>
-                  {copiedTemplate?(T?'✅ Disalin!':'✅ Copied!'):(T?'Salin Template':'Copy Template')}
-                </button>
+
               </div>
             )}
             <div>
