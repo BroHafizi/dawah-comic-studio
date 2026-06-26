@@ -772,55 +772,24 @@ export default function App() {
                 style={{minHeight:90}}
               />
             </div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-              <div>
-                <div className="lbl">{T?'Bilangan Halaman':'No. of Pages'}</div>
-                <input type="number" min="1" max="3" value={numPages} onChange={e=>setNumPagesVal(Math.min(3,Math.max(1,+e.target.value||1)))}/>
-              </div>
-              <div>
-                <div className="lbl">{T?'Bilangan Watak':'No. of Characters'}</div>
-                <input type="number" min="1" max="3" value={numChars} onChange={e=>setNumChars(Math.min(3,Math.max(1,+e.target.value||1)))}/>
-              </div>
-            </div>
-            {Array.from({length:numPages},(_,i)=>(
-              <div key={i}>
-                <div className="lbl">{T?`Halaman ${i+1} — Bilangan Panel`:`Page ${i+1} — Number of Panels`}</div>
-                <input type="number" min="1" max="6" value={panelCounts[i]||6} onChange={e=>setPagePanelCount(i,Math.min(6,Math.max(1,+e.target.value||1)))}/>
-              </div>
-            ))}
-
             <div className="divider"/>
 
-            {/* COPY FOR CUSTOMGPT BUTTON */}
-            <div>
-              <div className="lbl">{T?'Guna CustomGPT untuk hasilkan skrip?':'Using CustomGPT to generate script?'}</div>
-              <div className="hint mb8">
-                <span>🤖</span>
-                <span>{T?'Copy maklumat di bawah dan paste ke dalam CustomGPT AI Dakwah Comic Script Generator untuk hasilkan skrip dialog komik anda.':'Copy the info below and paste into CustomGPT AI Dakwah Comic Script Generator to generate your comic dialogue script.'}</span>
-              </div>
-              <button
-                className={`btn-copy${copiedCustomGPT?' copied':''}`}
-                onClick={()=>{
-                  const charList = chars.slice(0,numChars).map((c,i)=>`Watak ${i+1}: ${c.name||'[nama]'} — ${c.role||'[peranan]'} — ${c.trait||'[ciri]'}${c.gender?' — '+(c.gender==='male'?'Lelaki':'Perempuan'):''}`).join('\n')
-                  const isBM = inputLang==='bm'
-                  const pageStruct = Array.from({length:numPages},(_,i)=>`Halaman ${i+1}: ${panelCounts[i]||6} panel`).join(', ')
-                  const template = isBM
-                    ? `=== MAKLUMAT KOMIK DAKWAH ===\nTopik: ${topic||'[belum diisi]'}\nTajuk: ${comicTitle||topic||'[belum diisi]'}\nMesej Utama: ${mainMessage||'[belum diisi]'}${dalil?'\nDalil: '+dalil:''}\nJenis Komik: ${narrativeType==='dialogue'?'Dialog':narrativeType==='monologue'?'Monolog':'Aksi & Peristiwa'}\nPenerangan Jalan Cerita: ${narrativeDesc||'[belum diisi]'}\nBahasa: Bahasa Melayu Malaysia\n\n=== WATAK ===\n${charList||'[watak belum diisi]'}\n\n=== STRUKTUR ===\n${pageStruct}\n\n=== ARAHAN ===\nTolong hasilkan skrip komik dakwah berdasarkan maklumat di atas. Ikut flow CustomGPT: semak dalil (jika ada), suggest struktur, hasilkan skrip draft dalam canvas pertama. Tunggu pengesahan saya sebelum hasilkan output akhir.`
-                    : `=== DAKWAH COMIC INFO ===\nTopic: ${topic||'[not filled]'}\nTitle: ${comicTitle||topic||'[not filled]'}\nMain Message: ${mainMessage||'[not filled]'}${dalil?'\nReference: '+dalil:''}\nComic Type: ${narrativeType==='dialogue'?'Dialogue':narrativeType==='monologue'?'Monologue':'Action-driven'}\nStory Description: ${narrativeDesc||'[not filled]'}\nLanguage: English\n\n=== CHARACTERS ===\n${charList||'[characters not filled]'}\n\n=== STRUCTURE ===\n${pageStruct}\n\n=== INSTRUCTIONS ===\nPlease generate a dakwah comic script based on the above information. Follow CustomGPT flow: verify reference (if any), suggest structure, generate draft script in first canvas. Wait for my confirmation before generating final output.`
-                  navigator.clipboard.writeText(template)
-                  setCopiedCustomGPT(true)
-                  setTimeout(()=>setCopiedCustomGPT(false),2000)
-                }}
-              >
-                {copiedCustomGPT?(T?'✅ Disalin! Paste ke CustomGPT sekarang.':'✅ Copied! Paste into CustomGPT now.'):(T?'📋 Copy Maklumat untuk CustomGPT':'📋 Copy Info for CustomGPT')}
-              </button>
-            </div>
-          </div>
+                      </div>
         )}
 
         {/* STEP 3 — CHARACTERS */}
         {step===3&&(
           <div className="gap12">
+            <div>
+              <div className="lbl">{T?'Bilangan Watak':'No. of Characters'}</div>
+              <div className="chips">
+                {[1,2,3].map(n=>(
+                  <div key={n} className={`chip${numChars===n?' sel':''}`} onClick={()=>setNumChars(n)}>
+                    {n} {T?'watak':'character'}{n>1?T?'':'s':''}
+                  </div>
+                ))}
+              </div>
+            </div>
             <div className="lbl">{T?'Maklumat Watak':'Character Details'}</div>
             <div className="char-cards">
               {Array.from({length:numChars},(_,i)=>(
@@ -842,6 +811,56 @@ export default function App() {
             <div>
               <div className="lbl">{T?'Lokasi & Suasana':'Location & Atmosphere'}</div>
               <textarea placeholder={T?'Cth: Perkarangan masjid waktu Maghrib. Cahaya warm dan lembut. Suasana tenang.':'e.g. Mosque courtyard at Maghrib. Warm soft lighting. Calm atmosphere.'} value={location} onChange={e=>setLocation(e.target.value)} style={{minHeight:80}}/>
+            </div>
+
+            <div className="divider"/>
+
+            {/* COPY FOR CUSTOMGPT BUTTON — after all info collected */}
+            <div>
+              <div className="lbl">{T?'Guna CustomGPT untuk Hasilkan Skrip?':'Using CustomGPT to Generate Script?'}</div>
+              <div className="hint mb8">
+                <span>🤖</span>
+                <span>{T?'Semua maklumat di atas akan dimasukkan dalam template. Copy dan paste ke dalam CustomGPT AI Dakwah Comic Script Generator untuk hasilkan skrip dialog komik anda.':'All info above will be included in the template. Copy and paste into CustomGPT AI Dakwah Comic Script Generator to generate your comic dialogue script.'}</span>
+              </div>
+              <button
+                className={`btn-copy${copiedCustomGPT?' copied':''}`}
+                onClick={()=>{
+                  const nl = '\n'
+                  const charList = chars.slice(0,numChars).map((c,i)=>
+                    'Watak '+(i+1)+': '+(c.name||'[nama]')+' — '+(c.role||'[peranan]')+(c.trait?' — '+c.trait:'')+(c.gender?' — '+(c.gender==='male'?'Lelaki':'Perempuan'):'')
+                  ).join(nl)
+                  const isBM = inputLang==='bm'
+                  const jenis = narrativeType==='dialogue'?(isBM?'Dialog':'Dialogue'):narrativeType==='monologue'?(isBM?'Monolog':'Monologue'):(isBM?'Aksi & Peristiwa':'Action-driven')
+                  const template = isBM
+                    ? '=== MAKLUMAT KOMIK DAKWAH ==='+nl
+                      +'Topik: '+(topic||'[belum diisi]')+nl
+                      +'Tajuk: '+(comicTitle||topic||'[belum diisi]')+nl
+                      +'Mesej Utama: '+(mainMessage||'[belum diisi]')+(dalil?nl+'Dalil: '+dalil:'')+nl
+                      +'Jenis Komik: '+jenis+nl
+                      +'Penerangan Jalan Cerita: '+(narrativeDesc||'[belum diisi]')+nl
+                      +'Bahasa: Bahasa Melayu Malaysia'+nl+nl
+                      +'=== WATAK ==='+nl+(charList||'[watak belum diisi]')+nl+nl
+                      +'=== LOKASI & SUASANA ==='+nl+(location||'[belum diisi]')+nl+nl
+                      +'=== ARAHAN ==='+nl
+                      +'Tolong hasilkan skrip komik dakwah berdasarkan maklumat di atas. Semak dalil jika ada, cadangkan struktur (bilangan pages dan panel), bincang dengan saya, kemudian hasilkan skrip draft dalam canvas pertama. Tunggu pengesahan saya sebelum hasilkan output akhir.'
+                    : '=== DAKWAH COMIC INFO ==='+nl
+                      +'Topic: '+(topic||'[not filled]')+nl
+                      +'Title: '+(comicTitle||topic||'[not filled]')+nl
+                      +'Main Message: '+(mainMessage||'[not filled]')+(dalil?nl+'Reference: '+dalil:'')+nl
+                      +'Comic Type: '+jenis+nl
+                      +'Story Description: '+(narrativeDesc||'[not filled]')+nl
+                      +'Language: English'+nl+nl
+                      +'=== CHARACTERS ==='+nl+(charList||'[characters not filled]')+nl+nl
+                      +'=== LOCATION & ATMOSPHERE ==='+nl+(location||'[not filled]')+nl+nl
+                      +'=== INSTRUCTIONS ==='+nl
+                      +'Please generate a dakwah comic script based on the above. Verify reference if any, suggest structure (pages and panels), discuss with me, then generate draft in first canvas. Wait for my confirmation before final output.'
+                  navigator.clipboard.writeText(template)
+                  setCopiedCustomGPT(true)
+                  setTimeout(()=>setCopiedCustomGPT(false),2000)
+                }}
+              >
+                {copiedCustomGPT?(T?'✅ Disalin! Paste ke CustomGPT sekarang.':'✅ Copied! Paste into CustomGPT now.'):(T?'📋 Copy Maklumat untuk CustomGPT':'📋 Copy Info for CustomGPT')}
+              </button>
             </div>
           </div>
         )}
