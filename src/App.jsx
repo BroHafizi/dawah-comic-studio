@@ -198,8 +198,8 @@ const TONE_TO_SIZE = (tone='') => {
   return 'Medium'
 }
 const SIZE_CLASS = { Large:'size-large', Medium:'size-medium', Small:'size-small' }
-const STEPS_BM = ['Gaya','Topik','Watak','Storyboard','Pengarang','Prompt']
-const STEPS_EN = ['Style','Topic','Characters','Storyboard','Author','Prompts']
+const STEPS_BM = ['Gaya','Topik','Cerita','Watak','Storyboard','Pengarang','Prompt']
+const STEPS_EN = ['Style','Topic','Story','Characters','Storyboard','Author','Prompts']
 const SYSTEM_FOOTER = "Da'wah Comic Studio by Thinkerz Solution | v2.0"
 
 const detectLang = (text='') => {
@@ -388,6 +388,9 @@ export default function App() {
   const [topic, setTopic] = useState('')
   const [comicTitle, setComicTitle] = useState('')
   const [titleEdited, setTitleEdited] = useState(false)
+  const [mainMessage, setMainMessage] = useState('')
+  const [dalil, setDalil] = useState('')
+  const [copiedCustomGPT, setCopiedCustomGPT] = useState(false)
   const [narrativeType, setNarrativeType] = useState('')
   const [narrativeDesc, setNarrativeDesc] = useState('')
   const [numPages, setNumPages] = useState(1)
@@ -422,8 +425,9 @@ export default function App() {
 
   const canNext = () => {
     if (step===0) return !!styleId
-    if (step===1) return topic.trim() && narrativeType
-    if (step===2) return chars.slice(0,numChars).every(c=>c.name.trim()) && location.trim()
+    if (step===1) return topic.trim()
+    if (step===2) return !!narrativeType
+    if (step===3) return chars.slice(0,numChars).every(c=>c.name.trim()) && location.trim()
     if (step===3) {
       if (mode==='easy') return pages.length > 0
       if (mode==='advanced') return pastedScript.trim().length > 50
@@ -433,9 +437,9 @@ export default function App() {
   }
 
   const goNext = () => {
-    if (step===1) initPages()
-    if (step===3 && mode==='advanced' && !parsedFromScript) parseAndFill()
-    if (step===4) buildPrompts()
+    if (step===2) initPages()
+    if (step===4 && mode==='advanced' && !parsedFromScript) parseAndFill()
+    if (step===5) buildPrompts()
     setStep(s=>s+1); window.scrollTo(0,0)
   }
   const goBack = () => { setStep(s=>s-1); window.scrollTo(0,0) }
@@ -704,7 +708,7 @@ export default function App() {
         {step===1&&(
           <div className="gap12">
             <div>
-              <div className="lbl">{T?'Topik & Tajuk Komik':'Topic & Comic Title'}</div>
+              <div className="lbl">{T?'Topik Dakwah':'Da\'wah Topic'}</div>
               <input type="text" placeholder={T?'Cth: Kenapa Muslim wajib solat 5 waktu sehari?':'e.g. Why must Muslims pray 5 times a day?'} value={topic} onChange={e=>handleTopicChange(e.target.value)}/>
               <div className="hint mt8"><span>💡</span><span>{T?'Tajuk komik akan sama dengan topik. Edit di bawah kalau nak tukar.':'Comic title matches topic. Edit below to change.'}</span></div>
             </div>
@@ -715,16 +719,58 @@ export default function App() {
               </div>
             )}
             <div>
-              <div className="lbl">{T?'Jenis Narasi':'Narrative Type'}</div>
+              <div className="lbl">{T?'Mesej Utama yang Ingin Disampaikan':'Main Message to Convey'}</div>
+              <textarea
+                placeholder={T?'Apakah nilai, pengajaran, atau refleksi yang anda mahu pembaca rasa atau fikirkan selepas membaca komik ini?':'What value, lesson, or reflection do you want readers to feel or think about after reading this comic?'}
+                value={mainMessage}
+                onChange={e=>setMainMessage(e.target.value)}
+                style={{minHeight:72}}
+              />
+            </div>
+            <div>
+              <div className="lbl">{T?'Dalil Al-Quran / Hadis (pilihan)':'Quranic Verse / Hadith (optional)'}</div>
+              <textarea
+                placeholder={T?'Contoh: QS Al-Baqarah [2:45] atau Hadis Riwayat Bukhari... Tinggalkan kosong jika tiada.':'e.g. QS Al-Baqarah [2:45] or Hadith narrated by Bukhari... Leave empty if none.'}
+                value={dalil}
+                onChange={e=>setDalil(e.target.value)}
+                style={{minHeight:60}}
+              />
+              <div className="hint mt8"><span>⚠️</span><span>{T?'Pastikan dalil adalah sahih dan sesuai dengan konteks. AI dalam CustomGPT akan semak ketepatan dalil anda.':'Ensure the reference is authentic and contextually appropriate. The CustomGPT AI will verify accuracy.'}</span></div>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 2 — STORY STRUCTURE */}
+        {step===2&&(
+          <div className="gap12">
+            <div>
+              <div className="lbl">{T?'Jenis Komik':'Comic Type'}</div>
               <div className="chips">
-                {[['dialogue',T?'Dialog':'Dialogue'],['monologue',T?'Monolog':'Monologue'],['action',T?'Aksi':'Action-driven']].map(([id,lbl])=>(
-                  <div key={id} className={`chip${narrativeType===id?' sel':''}`} onClick={()=>setNarrativeType(id)}>{lbl}</div>
-                ))}
+                <div className={`chip${narrativeType==='dialogue'?' sel':''}`} onClick={()=>setNarrativeType('dialogue')}>
+                  {T?'Dialog':'Dialogue'}
+                </div>
+                <div className={`chip${narrativeType==='monologue'?' sel':''}`} onClick={()=>setNarrativeType('monologue')}>
+                  {T?'Monolog':'Monologue'}
+                </div>
+                <div className={`chip${narrativeType==='action'?' sel':''}`} onClick={()=>setNarrativeType('action')}>
+                  {T?'Aksi & Peristiwa':'Action-driven'}
+                </div>
+              </div>
+              <div style={{background:'var(--surface2)',border:'.5px solid var(--border)',borderRadius:'var(--radius)',padding:'10px 13px',fontSize:12,color:'var(--text2)',lineHeight:1.7}}>
+                {narrativeType==='dialogue'&&<span>💬 <strong>{T?'Dialog':'Dialogue'}</strong> — {T?'Cerita disampaikan melalui perbualan antara dua atau lebih watak. Paling sesuai untuk topik soal-jawab dan perbincangan.':'Story told through conversation between two or more characters. Best for Q&A and discussion topics.'}</span>}
+                {narrativeType==='monologue'&&<span>🧠 <strong>{T?'Monolog':'Monologue'}</strong> — {T?'Seorang watak berfikir, merenung, atau bercerita sendiri. Sesuai untuk topik refleksi diri dan perasaan dalaman.':'One character thinks, reflects, or narrates alone. Suitable for self-reflection and inner feelings.'}</span>}
+                {narrativeType==='action'&&<span>⚡ <strong>{T?'Aksi & Peristiwa':'Action-driven'}</strong> — {T?'Cerita disampaikan melalui kejadian dan aksi, bukan dialog. Sesuai untuk topik yang bercorak dramatik atau visual.':'Story told through events and action, not dialogue. Best for dramatic or visually driven topics.'}</span>}
+                {!narrativeType&&<span style={{color:'var(--text3)'}}>{T?'Pilih jenis komik di atas untuk lihat penerangan.':'Select a comic type above to see description.'}</span>}
               </div>
             </div>
             <div>
-              <div className="lbl">{T?'Deskripsi Narasi':'Narrative Description'}</div>
-              <textarea placeholder={T?'Ringkasan jalan cerita...':'Brief story description...'} value={narrativeDesc} onChange={e=>setNarrativeDesc(e.target.value)}/>
+              <div className="lbl">{T?'Penerangan Jalan Cerita Komik':'Comic Story Description'}</div>
+              <textarea
+                placeholder={T?'Ceritakan secara ringkas apa yang berlaku dalam komik ini. Contoh: Seorang pemuda bertanya kepada ustaznya kenapa perlu solat, dan ustaz menerangkan dengan analogi bateri telefon...':'Briefly describe what happens in this comic. Example: A young man asks his ustaz why prayer is necessary, and the ustaz explains using a phone battery analogy...'}
+                value={narrativeDesc}
+                onChange={e=>setNarrativeDesc(e.target.value)}
+                style={{minHeight:90}}
+              />
             </div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
               <div>
@@ -742,11 +788,38 @@ export default function App() {
                 <input type="number" min="1" max="6" value={panelCounts[i]||6} onChange={e=>setPagePanelCount(i,Math.min(6,Math.max(1,+e.target.value||1)))}/>
               </div>
             ))}
+
+            <div className="divider"/>
+
+            {/* COPY FOR CUSTOMGPT BUTTON */}
+            <div>
+              <div className="lbl">{T?'Guna CustomGPT untuk hasilkan skrip?':'Using CustomGPT to generate script?'}</div>
+              <div className="hint mb8">
+                <span>🤖</span>
+                <span>{T?'Copy maklumat di bawah dan paste ke dalam CustomGPT AI Dakwah Comic Script Generator untuk hasilkan skrip dialog komik anda.':'Copy the info below and paste into CustomGPT AI Dakwah Comic Script Generator to generate your comic dialogue script.'}</span>
+              </div>
+              <button
+                className={`btn-copy${copiedCustomGPT?' copied':''}`}
+                onClick={()=>{
+                  const charList = chars.slice(0,numChars).map((c,i)=>`Watak ${i+1}: ${c.name||'[nama]'} — ${c.role||'[peranan]'} — ${c.trait||'[ciri]'}${c.gender?' — '+(c.gender==='male'?'Lelaki':'Perempuan'):''}`).join('\n')
+                  const isBM = inputLang==='bm'
+                  const pageStruct = Array.from({length:numPages},(_,i)=>`Halaman ${i+1}: ${panelCounts[i]||6} panel`).join(', ')
+                  const template = isBM
+                    ? `=== MAKLUMAT KOMIK DAKWAH ===\nTopik: ${topic||'[belum diisi]'}\nTajuk: ${comicTitle||topic||'[belum diisi]'}\nMesej Utama: ${mainMessage||'[belum diisi]'}${dalil?'\nDalil: '+dalil:''}\nJenis Komik: ${narrativeType==='dialogue'?'Dialog':narrativeType==='monologue'?'Monolog':'Aksi & Peristiwa'}\nPenerangan Jalan Cerita: ${narrativeDesc||'[belum diisi]'}\nBahasa: Bahasa Melayu Malaysia\n\n=== WATAK ===\n${charList||'[watak belum diisi]'}\n\n=== STRUKTUR ===\n${pageStruct}\n\n=== ARAHAN ===\nTolong hasilkan skrip komik dakwah berdasarkan maklumat di atas. Ikut flow CustomGPT: semak dalil (jika ada), suggest struktur, hasilkan skrip draft dalam canvas pertama. Tunggu pengesahan saya sebelum hasilkan output akhir.`
+                    : `=== DAKWAH COMIC INFO ===\nTopic: ${topic||'[not filled]'}\nTitle: ${comicTitle||topic||'[not filled]'}\nMain Message: ${mainMessage||'[not filled]'}${dalil?'\nReference: '+dalil:''}\nComic Type: ${narrativeType==='dialogue'?'Dialogue':narrativeType==='monologue'?'Monologue':'Action-driven'}\nStory Description: ${narrativeDesc||'[not filled]'}\nLanguage: English\n\n=== CHARACTERS ===\n${charList||'[characters not filled]'}\n\n=== STRUCTURE ===\n${pageStruct}\n\n=== INSTRUCTIONS ===\nPlease generate a dakwah comic script based on the above information. Follow CustomGPT flow: verify reference (if any), suggest structure, generate draft script in first canvas. Wait for my confirmation before generating final output.`
+                  navigator.clipboard.writeText(template)
+                  setCopiedCustomGPT(true)
+                  setTimeout(()=>setCopiedCustomGPT(false),2000)
+                }}
+              >
+                {copiedCustomGPT?(T?'✅ Disalin! Paste ke CustomGPT sekarang.':'✅ Copied! Paste into CustomGPT now.'):(T?'📋 Copy Maklumat untuk CustomGPT':'📋 Copy Info for CustomGPT')}
+              </button>
+            </div>
           </div>
         )}
 
-        {/* STEP 2 — CHARACTERS */}
-        {step===2&&(
+        {/* STEP 3 — CHARACTERS */}
+        {step===3&&(
           <div className="gap12">
             <div className="lbl">{T?'Maklumat Watak':'Character Details'}</div>
             <div className="char-cards">
@@ -774,14 +847,14 @@ export default function App() {
         )}
 
         {/* STEP 3 — STORYBOARD */}
-        {step===3&&mode==='easy'&&(
+        {step===4&&mode==='easy'&&(
           <div className="gap12">
             <div className="hint"><span>📝</span><span>{T?'Isi deskripsi visual, ton emosi, dan dialog untuk setiap panel.':'Fill in visual description, emotional tone, and dialogue for each panel.'}</span></div>
             {renderPanelEditor()}
           </div>
         )}
 
-        {step===3&&mode==='advanced'&&(
+        {step===4&&mode==='advanced'&&(
           <div className="gap12">
             <button className="btn-ghost" style={{width:'100%',padding:'10px'}} onClick={()=>setShowAiPrompt(v=>!v)}>
               {showAiPrompt?(T?'▲ Sorokkan Template':'▲ Hide Template'):(T?'▼ Dapatkan Template Prompt untuk AI':'▼ Get AI Prompt Template')}
@@ -819,7 +892,7 @@ export default function App() {
         )}
 
         {/* STEP 4 — AUTHOR */}
-        {step===4&&(
+        {step===6&&(
           <div className="gap12">
             <div className="lbl">{T?'Nama Penulis / NGO / Organisasi':'Author / NGO / Organization'}</div>
             <input type="text" placeholder={T?'Cth: Bro Hafizi  /  Pertubuhan Dakwah XYZ  /  @NamaPage':'e.g. Bro Hafizi  /  Dakwah XYZ  /  @YourPage'} value={authorName} onChange={e=>setAuthorName(e.target.value)}/>
@@ -829,7 +902,7 @@ export default function App() {
         )}
 
         {/* STEP 5 — PROMPTS */}
-        {step===5&&(
+        {step===6&&(
           <div className="gap12">
             <div className="status-ok">✅ {T?`${prompts.length} prompt dijana — satu per halaman.`:`${prompts.length} prompt(s) generated — one per page.`}</div>
             <div className="hint">
@@ -858,10 +931,10 @@ export default function App() {
 
       <div className="nav">
         <button className="btn-sec" onClick={goBack} disabled={step===0}>{T?'← Kembali':'← Back'}</button>
-        <div className="nav-info">{T?'Langkah':'Step'} {step+1}/6</div>
-        {step<5
+        <div className="nav-info">{T?'Langkah':'Step'} {step+1}/7</div>
+        {step<6
           ?<button className="btn" onClick={goNext} disabled={!canNext()}>{T?'Seterusnya →':'Next →'}</button>
-          :<button className="btn-sec" onClick={()=>setStep(3)}>{T?'← Edit Semula':'← Edit Again'}</button>
+          :<button className="btn-sec" onClick={()=>setStep(4)}>{T?'← Edit Semula':'← Edit Again'}</button>
         }
       </div>
 
